@@ -1,5 +1,4 @@
 import torch
-from comfy.cli_args import args
 import node_helpers
 
 class KiaConceptClipTextEncodeFlux:
@@ -71,31 +70,22 @@ class KiaConceptClipTextEncodeFlux:
         # Get the preset prompt based on theme and strength
         preset_prompt = self.get_prompt_for_strength(theme, strength)
         
-        # Check if we need to update the text widgets
-        need_update = False
-        ui_update = {}
+        # Always create a UI update to ensure prompts are shown
+        ui_update = {
+            "clip_prompt": preset_prompt,
+            "t5xxl_prompt": preset_prompt
+        }
         
-        if clip_l == "" or t5xxl == "":
-            # Text fields are empty, fill them with the preset prompt
-            need_update = True
-            ui_update["clip_prompt"] = preset_prompt
-            ui_update["t5xxl_prompt"] = preset_prompt
-            # Use the preset prompt for encoding
-            actual_clip_prompt = preset_prompt
-            actual_t5xxl_prompt = preset_prompt
-        else:
-            # Use the user-edited prompts for encoding
-            actual_clip_prompt = clip_l
-            actual_t5xxl_prompt = t5xxl
+        # Use preset prompts if fields are empty, otherwise use user inputs
+        actual_clip_prompt = preset_prompt if clip_l == "" else clip_l
+        actual_t5xxl_prompt = preset_prompt if t5xxl == "" else t5xxl
         
         # Tokenize and encode
         tokens = clip.tokenize(actual_clip_prompt)
         tokens["t5xxl"] = clip.tokenize(actual_t5xxl_prompt)["t5xxl"]
         
-        # Return conditioning with guidance and UI updates if needed
+        # Return conditioning with guidance AND UI updates
         conditioning = clip.encode_from_tokens_scheduled(tokens, add_dict={"guidance": guidance})
         
-        if need_update:
-            return (conditioning, ui_update)
-        else:
-            return (conditioning, )
+        # ALWAYS return the UI update to ensure prompts are displayed
+        return (conditioning, ui_update)

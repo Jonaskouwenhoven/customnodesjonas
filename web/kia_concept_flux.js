@@ -3,110 +3,87 @@ import { app } from "../../scripts/app.js";
 app.registerExtension({
     name: "KiaConceptFlux",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        // Target the correct node name that matches your workflow
+        // Only target our specific node
         if (nodeData.name === "KiaConceptClipTextEncodeFlux") {
-            // Store the original onNodeCreated function
+            // Override the onExecuted method to update the UI
+            nodeType.prototype.onExecuted = function(message) {
+                console.log("Node executed with message:", message);
+                
+                if (message && (message.clip_prompt || message.t5xxl_prompt)) {
+                    console.log("Updating prompts in UI");
+                    
+                    // Find the clip_l widget (index 3)
+                    if (message.clip_prompt && this.widgets[3]) {
+                        console.log("Setting clip_l to:", message.clip_prompt);
+                        this.widgets[3].value = message.clip_prompt;
+                    }
+                    
+                    // Find the t5xxl widget (index 4)
+                    if (message.t5xxl_prompt && this.widgets[4]) {
+                        console.log("Setting t5xxl to:", message.t5xxl_prompt);
+                        this.widgets[4].value = message.t5xxl_prompt;
+                    }
+                    
+                    // Force a redraw of the widget
+                    app.canvas.setDirty(true, true);
+                    
+                    // Important: Explicitly notify the node that widgets have changed
+                    if (this.onWidgetChanged) {
+                        this.onWidgetChanged();
+                    }
+                }
+            };
+            
+            // Add change listeners to theme and strength
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function() {
                 const result = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
                 
                 const self = this;
                 
-                // Log the widget structure to see what we're working with
-                console.log("KiaConceptClipTextEncodeFlux widgets:", self.widgets);
+                // Add event listeners for theme and strength widgets
+                if (this.widgets.length >= 2) {
+                    // Theme widget (index 0)
+                    const origThemeCallback = this.widgets[0].callback;
+                    this.widgets[0].callback = function(v) {
+                        console.log("Theme changed to:", v);
+                        const result = origThemeCallback ? origThemeCallback.call(this, v) : undefined;
+                        
+                        // Execute the node to update prompts
+                        self.graph.runStep(1);
+                        
+                        return result;
+                    };
+                    
+                    // Strength widget (index 1)
+                    const origStrengthCallback = this.widgets[1].callback;
+                    this.widgets[1].callback = function(v) {
+                        console.log("Strength changed to:", v);
+                        const result = origStrengthCallback ? origStrengthCallback.call(this, v) : undefined;
+                        
+                        // Execute the node to update prompts
+                        self.graph.runStep(1);
+                        
+                        return result;
+                    };
+                }
                 
-                // We need to update the UI when inputs are changed
-                // Store the original onExecuted function to call it later
-                const origOnExecuted = this.onExecuted;
-                
-                this.onExecuted = function(message) {
-                    // Call original onExecuted if it exists
-                    if (origOnExecuted) {
-                        origOnExecuted.call(this, message);
-                    }
-                    
-                    console.log("Node executed with message:", message);
-                    
-                    // Update widgets with the new prompts when message contains them
-                    if (message && message.clip_prompt) {
-                        // Find the clip_l widget (index 3 based on the widget order)
-                        const clipWidget = self.widgets[3];
-                        if (clipWidget) {
-                            clipWidget.value = message.clip_prompt;
-                            console.log("Updated clip_l widget with:", message.clip_prompt);
+                // Also add a context menu option
+                this.getExtraMenuOptions = function(_, options) {
+                    options.push({
+                        content: "Refresh Prompts",
+                        callback: () => {
+                            console.log("Refreshing prompts via context menu");
+                            // Force the widgets to be empty to trigger an update
+                            if (this.widgets[3]) this.widgets[3].value = "";
+                            if (this.widgets[4]) this.widgets[4].value = "";
+                            // Execute the node to update prompts
+                            this.graph.runStep(1);
                         }
-                    }
-                    
-                    if (message && message.t5xxl_prompt) {
-                        // Find the t5xxl widget (index 4 based on the widget order)
-                        const t5xxlWidget = self.widgets[4];
-                        if (t5xxlWidget) {
-                            t5xxlWidget.value = message.t5xxl_prompt;
-                            console.log("Updated t5xxl widget with:", message.t5xxl_prompt);
-                        }
-                    }
-                    
-                    // Mark the canvas as dirty to trigger a redraw
-                    if (message && (message.clip_prompt || message.t5xxl_prompt)) {
-                        app.graph.setDirtyCanvas(true, false);
-                    }
+                    });
                 };
                 
-                // Add theme and strength change listeners
-                // Theme is likely widget index 0, strength is likely widget index 1
-                if (self.widgets && self.widgets.length > 1) {
-                    // Theme listener (index 0)
-                    const themeWidget = self.widgets[0];
-                    if (themeWidget) {
-                        const origThemeCallback = themeWidget.callback;
-                        themeWidget.callback = function(v) {
-                            console.log("Theme changed to:", v);
-                            const result = origThemeCallback ? origThemeCallback.call(this, v) : undefined;
-                            // Trigger node execution to update prompts
-                            setTimeout(() => {
-                                app.graph.setDirtyCanvas(true, true);
-                                app.graph.runStep(); // Run the graph to update
-                            }, 10);
-                            return result;
-                        };
-                    }
-                    
-                    // Strength listener (index 1)
-                    const strengthWidget = self.widgets[1];
-                    if (strengthWidget) {
-                        const origStrengthCallback = strengthWidget.callback;
-                        strengthWidget.callback = function(v) {
-                            console.log("Strength changed to:", v);
-                            const result = origStrengthCallback ? origStrengthCallback.call(this, v) : undefined;
-                            // Trigger node execution to update prompts
-                            setTimeout(() => {
-                                app.graph.setDirtyCanvas(true, true);
-                                app.graph.runStep(); // Run the graph to update
-                            }, 10);
-                            return result;
-                        };
-                    }
-                }
-                
                 return result;
-            };
-            
-            // Override the original getExtraMenuOptions
-            const getExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
-            nodeType.prototype.getExtraMenuOptions = function(_, options) {
-                if (getExtraMenuOptions) {
-                    getExtraMenuOptions.apply(this, arguments);
-                }
-                
-                // Add a refresh option in the context menu
-                options.push({
-                    content: "Refresh Prompts",
-                    callback: () => {
-                        // Trigger a re-execution of the node
-                        this.setDirtyCanvas(true, true);
-                        app.graph.runStep(); // Run the graph to update
-                    }
-                });
             };
         }
     }
