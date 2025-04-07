@@ -1,19 +1,19 @@
-from .kia_flux_encode import CLIPTextEncodeFlux, FluxGuidance, FluxDisableGuidance, KiaConceptPromptGenerator, KiaThemeStrengthCLIPTextEncodeFlux
+from .kia_prompt_display import CLIPTextEncodeFlux, FluxGuidance, FluxDisableGuidance, KiaPromptDisplay, KiaPromptToFlux
 
 NODE_CLASS_MAPPINGS = {
     "CLIPTextEncodeFlux": CLIPTextEncodeFlux,
     "FluxGuidance": FluxGuidance,
     "FluxDisableGuidance": FluxDisableGuidance,
-    "KiaConceptPromptGenerator": KiaConceptPromptGenerator,
-    "KiaThemeStrengthCLIPTextEncodeFlux": KiaThemeStrengthCLIPTextEncodeFlux,
+    "KiaPromptDisplay": KiaPromptDisplay,
+    "KiaPromptToFlux": KiaPromptToFlux,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "CLIPTextEncodeFlux": "CLIP Text Encode (Flux)",
     "FluxGuidance": "Flux Guidance",
     "FluxDisableGuidance": "Flux Disable Guidance",
-    "KiaConceptPromptGenerator": "Kia Concept Prompt Generator",
-    "KiaThemeStrengthCLIPTextEncodeFlux": "Kia Theme+Strength CLIP Encode (Flux)",
+    "KiaPromptDisplay": "Kia Concept Prompt Display",
+    "KiaPromptToFlux": "Kia Prompt to Flux",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

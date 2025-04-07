@@ -52,7 +52,7 @@ def image_alpha_fix(destination, source):
         destination = torch.nn.functional.pad(destination, (0, 1))
         destination[..., -1] = 1.0
     return destination, source
-
+import node_helpers
 
 class CLIPTextEncodeFlux:
     @classmethod
@@ -99,7 +99,7 @@ class FluxDisableGuidance:
         c = node_helpers.conditioning_set_values(conditioning, {"guidance": None})
         return (c, )
 
-class KiaConceptPromptGenerator:
+class KiaPromptDisplay:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
@@ -107,6 +107,7 @@ class KiaConceptPromptGenerator:
             "strength": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05}),
             }}
     RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("prompt",)
     FUNCTION = "generate_prompt"
     CATEGORY = "prompts/kia_concept"
     
@@ -176,143 +177,39 @@ class KiaConceptPromptGenerator:
             # Return a placeholder for other themes
             return (f"This theme ({theme}) is coming soon. Current strength setting: {strength_rounded}",)
 
-class KiaThemeStrengthCLIPTextEncodeFlux:
+class KiaPromptToFlux:
     @classmethod
     def INPUT_TYPES(s):
-        # Define the City prompts at different strength levels as default values
-        city_prompts = {
-            0.0: "White car interior, standard office workspace, office chair, basic lighting, connectivity features, office environment, display screen, white background, side view, KIA design",
-            0.5: "Innovative white car interior, officepod setup, premium ergonomic office chair, studio lighting system, digital connectivity center, luxury office environment, integrated display array, conference feature, white studio background, detailed side view, KIA concept design",
-            1.0: "Futuristic white concept car interior, officepod_v1 ultimate, complete mobile office suite, expansive executive desk workspace, premium ergonomic office chair, comprehensive studio lighting, state-of-art connectivity command center, luxury executive office environment, immersive display array, conference capabilities, built-in file storage, high-quality detailed render, white studio background, side view visualization, KIA concept design"
-        }
-        
-        # Default prompt is strength 0.5
-        default_prompt = city_prompts[0.5]
-        
         return {"required": {
             "clip": ("CLIP", ),
-            "theme": (["City", "Comfortability (Coming Soon)", "Travel (Coming Soon)"], {
-                "default": "City",
-            }),
-            "strength": ("FLOAT", {
-                "default": 0.5, 
-                "min": 0.0, 
-                "max": 1.0, 
-                "step": 0.05
-            }),
-            "clip_l": ("STRING", {
-                "multiline": True,
-                "dynamicPrompts": True,
-                "default": default_prompt
-            }),
-            "t5xxl": ("STRING", {
-                "multiline": True,
-                "dynamicPrompts": True,
-                "default": default_prompt
-            }),
+            "prompt": ("STRING", {"multiline": True}),
             "guidance": ("FLOAT", {"default": 3.5, "min": 0.0, "max": 100.0, "step": 0.1}),
-            "generate_button": ("BOOLEAN", {"default": True, "label_on": "Generate Prompt", "label_off": "Generate Prompt"}),
             }}
-    RETURN_TYPES = ("CONDITIONING", "STRING")
-    RETURN_NAMES = ("conditioning", "prompt")
+    RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "encode"
     CATEGORY = "advanced/conditioning/flux"
     
-    def get_city_prompts(self):
-        # Define prompts for different strength levels (0.0 to 1.0 in steps of 0.05)
-        city_prompts = {
-            0.0: "White car interior, standard office workspace, office chair, basic lighting, connectivity features, office environment, display screen, white background, side view, KIA design",
-            
-            0.05: "Modern white car interior, enhanced office workspace, comfortable office chair, good lighting, connectivity hub, practical office environment, display screen, white background, side view, KIA design concept",
-            
-            0.1: "Modern white car interior, mobile workspace, ergonomic office chair, good lighting system, connectivity hub, functional office environment, display screen, white background, side view, KIA design concept",
-            
-            0.15: "Modern white car interior, mobile office space, ergonomic office chair, quality lighting system, connectivity center, functional office environment, display screen, white background, side view, KIA design concept",
-            
-            0.2: "Contemporary white car interior, mobile office space, ergonomic office chair, quality lighting system, connectivity center, practical office environment, integrated display, white background, side view, KIA design concept",
-            
-            0.25: "Contemporary white car interior, mobile office setup, ergonomic office chair, enhanced lighting system, digital connectivity center, practical office environment, integrated display, white background, side view, KIA design concept",
-            
-            0.3: "Sleek white car interior, mobile office setup, ergonomic office chair, enhanced lighting system, digital connectivity center, comfortable office environment, integrated display array, white background, side view, KIA design concept",
-            
-            0.35: "Sleek white car interior, mobile officepod, premium ergonomic chair, enhanced lighting system, digital connectivity center, comfortable office environment, integrated display array, white background, detailed side view, KIA design concept",
-            
-            0.4: "Advanced white car interior, mobile officepod, premium ergonomic chair, studio lighting system, digital connectivity center, comfortable office environment, integrated display array, white studio background, detailed side view, KIA concept design",
-            
-            0.45: "Advanced white car interior, officepod design, premium ergonomic chair, studio lighting system, digital connectivity center, luxury office environment, integrated display array, white studio background, detailed side view, KIA concept design",
-            
-            0.5: "Innovative white car interior, officepod setup, premium ergonomic office chair, studio lighting system, digital connectivity center, luxury office environment, integrated display array, conference feature, white studio background, detailed side view, KIA concept design",
-            
-            0.55: "Innovative white concept car interior, officepod workspace, premium ergonomic office chair, professional lighting, digital connectivity center, luxury office environment, integrated display array, conference capability, white studio background, detailed side view, KIA concept design",
-            
-            0.6: "Futuristic white concept car interior, officepod workspace, premium ergonomic office chair, professional lighting, connectivity command center, luxury office environment, integrated display array, conference capability, white studio background, side view visualization, KIA concept design",
-            
-            0.65: "Futuristic white concept car interior, officepod premium, premium ergonomic office chair, studio lighting, connectivity command center, luxury office environment, immersive display array, conference capability, file storage, white studio background, side view visualization, KIA concept design",
-            
-            0.7: "Futuristic white concept car interior, officepod premium, premium ergonomic office chair, comprehensive studio lighting, connectivity command center, luxury executive office environment, immersive display array, conference capability, built-in file storage, white studio background, side view visualization, KIA concept design",
-            
-            0.75: "Futuristic white concept car interior, officepod advanced, premium ergonomic office chair, comprehensive studio lighting, connectivity command center, luxury executive office environment, immersive display array, conference capability, built-in file storage, high-quality render, white studio background, side view visualization, KIA concept design",
-            
-            0.8: "Futuristic white concept car interior, officepod_v1, premium ergonomic office chair, comprehensive studio lighting, state-of-art connectivity command center, luxury executive office environment, immersive display array, conference capability, built-in file storage, high-quality detailed render, white studio background, side view visualization, KIA concept design",
-            
-            0.85: "Futuristic white concept car interior, officepod_v1 pro, premium ergonomic office chair, comprehensive studio lighting, state-of-art connectivity command center, luxury executive office environment, immersive display array, conference capability, built-in file storage, high-quality detailed render, white studio background, side view visualization, KIA concept design",
-            
-            0.9: "Futuristic white concept car interior, officepod_v1 professional, premium ergonomic office chair, comprehensive studio lighting, state-of-art connectivity command center, luxury executive office environment, immersive display array, conference capabilities, built-in file storage, high-quality detailed render, white studio background, side view visualization, KIA concept design",
-            
-            0.95: "Futuristic white concept car interior, officepod_v1 ultimate, premium ergonomic office chair workspace, comprehensive studio lighting, state-of-art connectivity command center, luxury executive office environment, immersive display array, conference capabilities, built-in file storage, high-quality detailed render, white studio background, side view visualization, KIA concept design",
-            
-            1.0: "Futuristic white concept car interior, officepod_v1 ultimate, complete mobile office suite, expansive executive desk workspace, premium ergonomic office chair, comprehensive studio lighting, state-of-art connectivity command center, luxury executive office environment, immersive display array, conference capabilities, built-in file storage, high-quality detailed render, white studio background, side view visualization, KIA concept design"
-        }
-        return city_prompts
-    
-    def get_prompt_for_strength(self, theme, strength):
-        # Round strength to nearest 0.05
-        strength_rounded = round(strength * 20) / 20
+    def encode(self, clip, prompt, guidance):
+        # Use the same prompt for both CLIP and T5XXL
+        tokens = clip.tokenize(prompt)
+        tokens["t5xxl"] = clip.tokenize(prompt)["t5xxl"]
         
-        if theme == "City":
-            prompts = self.get_city_prompts()
-            
-            # Get the closest strength value if the exact one isn't available
-            if strength_rounded not in prompts:
-                available_strengths = sorted(prompts.keys())
-                # Find the closest strength value
-                closest = min(available_strengths, key=lambda x: abs(x - strength_rounded))
-                strength_rounded = closest
-                
-            return prompts[strength_rounded]
-        else:
-            # Return a placeholder for other themes
-            return f"This theme ({theme}) is coming soon. Current strength setting: {strength_rounded}"
-    
-    def encode(self, clip, theme, strength, clip_l, t5xxl, guidance, generate_button=True):
-        # If the generate button is pressed, get a new prompt
-        if generate_button:
-            # Generate the prompt based on theme and strength
-            generated_prompt = self.get_prompt_for_strength(theme, strength)
-            clip_l = generated_prompt
-            t5xxl = generated_prompt
-        
-        # Encode the prompts
-        tokens = clip.tokenize(clip_l)
-        tokens["t5xxl"] = clip.tokenize(t5xxl)["t5xxl"]
-        
-        # Return conditioning with guidance
-        conditioning = clip.encode_from_tokens_scheduled(tokens, add_dict={"guidance": guidance})
-        
-        return (conditioning, clip_l)
+        # Return encoding with guidance
+        return (clip.encode_from_tokens_scheduled(tokens, add_dict={"guidance": guidance}), )
+
 
 NODE_CLASS_MAPPINGS = {
     "CLIPTextEncodeFlux": CLIPTextEncodeFlux,
     "FluxGuidance": FluxGuidance,
     "FluxDisableGuidance": FluxDisableGuidance,
-    "KiaConceptPromptGenerator": KiaConceptPromptGenerator,
-    "KiaThemeStrengthCLIPTextEncodeFlux": KiaThemeStrengthCLIPTextEncodeFlux,
+    "KiaPromptDisplay": KiaPromptDisplay,
+    "KiaPromptToFlux": KiaPromptToFlux,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "CLIPTextEncodeFlux": "CLIP Text Encode (Flux)",
     "FluxGuidance": "Flux Guidance",
     "FluxDisableGuidance": "Flux Disable Guidance",
-    "KiaConceptPromptGenerator": "Kia Concept Prompt Generator",
-    "KiaThemeStrengthCLIPTextEncodeFlux": "Kia Theme+Strength CLIP Encode (Flux)",
+    "KiaPromptDisplay": "Kia Concept Prompt Display",
+    "KiaPromptToFlux": "Kia Prompt to Flux",
 }
