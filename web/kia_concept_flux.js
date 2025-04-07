@@ -3,32 +3,17 @@ import { app } from "../../scripts/app.js";
 app.registerExtension({
     name: "KiaConceptFlux",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        // Update to target both node types
-        if (nodeData.name === "KiaFluxConceptNode" || nodeData.name === "CLIPTextEncodeFlux") {
-            // Add a widget dynamically for clip_l and t5xxl
+        // Target the correct node name that matches your workflow
+        if (nodeData.name === "KiaConceptClipTextEncodeFlux") {
+            // Store the original onNodeCreated function
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function() {
                 const result = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
                 
                 const self = this;
                 
-                // Add widgets if they don't exist already
-                // Check if this node needs widgets (KiaFluxConceptNode already has them defined in Python)
-                if (nodeData.name === "CLIPTextEncodeFlux") {
-                    // Add clip_l widget if it doesn't exist
-                    if (!this.widgets.find(w => w.name === "clip_l")) {
-                        this.addWidget("text", "clip_l", "", function(v) {
-                            // Handle value changes
-                        }, { multiline: true });
-                    }
-                    
-                    // Add t5xxl widget if it doesn't exist
-                    if (!this.widgets.find(w => w.name === "t5xxl")) {
-                        this.addWidget("text", "t5xxl", "", function(v) {
-                            // Handle value changes
-                        }, { multiline: true });
-                    }
-                }
+                // Log the widget structure to see what we're working with
+                console.log("KiaConceptClipTextEncodeFlux widgets:", self.widgets);
                 
                 // We need to update the UI when inputs are changed
                 // Store the original onExecuted function to call it later
@@ -40,63 +25,62 @@ app.registerExtension({
                         origOnExecuted.call(this, message);
                     }
                     
-                    // If this is a KiaFluxConceptNode, handle theme/preset changes
-                    if (nodeData.name === "KiaFluxConceptNode") {
-                        // Find the clip_l and t5xxl widgets by name
-                        const clipWidget = self.widgets.find(w => w.name === "clip_l");
-                        const t5xxlWidget = self.widgets.find(w => w.name === "t5xxl");
-                        
-                        // Update widgets with the new prompts when message contains them
-                        if (message && message.clip_prompt && clipWidget) {
+                    console.log("Node executed with message:", message);
+                    
+                    // Update widgets with the new prompts when message contains them
+                    if (message && message.clip_prompt) {
+                        // Find the clip_l widget (index 3 based on the widget order)
+                        const clipWidget = self.widgets[3];
+                        if (clipWidget) {
                             clipWidget.value = message.clip_prompt;
-                        }
-                        if (message && message.t5xxl_prompt && t5xxlWidget) {
-                            t5xxlWidget.value = message.t5xxl_prompt;
-                        }
-                        
-                        // Mark the canvas as dirty to trigger a redraw
-                        if (message && (message.clip_prompt || message.t5xxl_prompt)) {
-                            this.setDirtyCanvas(true, false);
+                            console.log("Updated clip_l widget with:", message.clip_prompt);
                         }
                     }
-                    // For CLIPTextEncodeFlux, handle the message directly
-                    else if (nodeData.name === "CLIPTextEncodeFlux") {
-                        if (message && message.clip_prompt) {
-                            self.widgets[3].value = message.clip_prompt;
+                    
+                    if (message && message.t5xxl_prompt) {
+                        // Find the t5xxl widget (index 4 based on the widget order)
+                        const t5xxlWidget = self.widgets[4];
+                        if (t5xxlWidget) {
+                            t5xxlWidget.value = message.t5xxl_prompt;
+                            console.log("Updated t5xxl widget with:", message.t5xxl_prompt);
                         }
-                        if (message && message.t5xxl_prompt) {
-                            self.widgets[4].value = message.t5xxl_prompt;
-                        }
+                    }
+                    
+                    // Mark the canvas as dirty to trigger a redraw
+                    if (message && (message.clip_prompt || message.t5xxl_prompt)) {
+                        app.graph.setDirtyCanvas(true, false);
                     }
                 };
                 
-                // For KiaFluxConceptNode, add listeners for theme/preset selection changes
-                if (nodeData.name === "KiaFluxConceptNode") {
-                    // Get the theme and preset widgets
-                    const themeWidget = self.widgets.find(w => w.name === "theme");
-                    const presetWidget = self.widgets.find(w => w.name === "preset");
-                    
-                    // If found, add listeners to trigger a node execution when they change
+                // Add theme and strength change listeners
+                // Theme is likely widget index 0, strength is likely widget index 1
+                if (self.widgets && self.widgets.length > 1) {
+                    // Theme listener (index 0)
+                    const themeWidget = self.widgets[0];
                     if (themeWidget) {
                         const origThemeCallback = themeWidget.callback;
                         themeWidget.callback = function(v) {
+                            console.log("Theme changed to:", v);
                             const result = origThemeCallback ? origThemeCallback.call(this, v) : undefined;
                             // Trigger node execution to update prompts
                             setTimeout(() => {
-                                self.setDirtyCanvas(true, true);
+                                app.graph.setDirtyCanvas(true, true);
                                 app.graph.runStep(); // Run the graph to update
                             }, 10);
                             return result;
                         };
                     }
                     
-                    if (presetWidget) {
-                        const origPresetCallback = presetWidget.callback;
-                        presetWidget.callback = function(v) {
-                            const result = origPresetCallback ? origPresetCallback.call(this, v) : undefined;
+                    // Strength listener (index 1)
+                    const strengthWidget = self.widgets[1];
+                    if (strengthWidget) {
+                        const origStrengthCallback = strengthWidget.callback;
+                        strengthWidget.callback = function(v) {
+                            console.log("Strength changed to:", v);
+                            const result = origStrengthCallback ? origStrengthCallback.call(this, v) : undefined;
                             // Trigger node execution to update prompts
                             setTimeout(() => {
-                                self.setDirtyCanvas(true, true);
+                                app.graph.setDirtyCanvas(true, true);
                                 app.graph.runStep(); // Run the graph to update
                             }, 10);
                             return result;

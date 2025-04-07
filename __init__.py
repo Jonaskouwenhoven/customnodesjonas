@@ -1,14 +1,15 @@
-from .kia_flux_node import KiaFluxConceptNode, CLIPTextEncodeFlux, FluxGuidance, FluxDisableGuidance
+from .kia_flux_node import CLIPTextEncodeFlux, FluxGuidance, FluxDisableGuidance 
+from .kia_flux_encode import KiaConceptClipTextEncodeFlux
 
 NODE_CLASS_MAPPINGS = {
-    "KiaFluxConceptNode": KiaFluxConceptNode,
+    "KiaConceptClipTextEncodeFlux": KiaConceptClipTextEncodeFlux,
     "CLIPTextEncodeFlux": CLIPTextEncodeFlux,
     "FluxGuidance": FluxGuidance,
     "FluxDisableGuidance": FluxDisableGuidance,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "KiaFluxConceptNode": "Kia Concept Car (Flux)",
+    "KiaConceptClipTextEncodeFlux": "Kia Concept CLIP Text Encode (Flux)",
     "CLIPTextEncodeFlux": "CLIP Text Encode (Flux)",
     "FluxGuidance": "Flux Guidance",
     "FluxDisableGuidance": "Flux Disable Guidance",
