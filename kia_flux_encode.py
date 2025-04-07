@@ -1,8 +1,6 @@
 import hashlib
 import torch
-
 from comfy.cli_args import args
-
 from PIL import ImageFile, UnidentifiedImageError
 
 def conditioning_set_values(conditioning, values={}):
@@ -12,7 +10,6 @@ def conditioning_set_values(conditioning, values={}):
         for k in values:
             n[1][k] = values[k]
         c.append(n)
-
     return c
 
 def pillow(fn, arg):
@@ -52,7 +49,7 @@ def image_alpha_fix(destination, source):
         destination = torch.nn.functional.pad(destination, (0, 1))
         destination[..., -1] = 1.0
     return destination, source
-import node_helpers
+
 import node_helpers
 
 class KiaFluxConceptNode:
@@ -130,15 +127,36 @@ class KiaFluxConceptNode:
     
     def encode(self, clip, theme, preset, clip_l, t5xxl, guidance):
         """Encode the prompts using the CLIP model"""
-        # We receive the manually edited prompts in clip_l and t5xxl
-        # These might be our preset prompts or user-edited versions
+        # Get the strength value from the preset
+        strength = self.preset_to_strength(preset)
         
-        # Tokenize and encode
+        # Get the preset prompt based on theme and strength
+        preset_prompt = self.get_prompt_for_strength(theme, strength)
+        
+        # Check if we need to update the text widgets with new preset
+        # We'll compare the input prompt with our generated preset
+        need_update = False
+        ui_update = {}
+        
+        # Only update if user hasn't made manual changes
+        # Or if theme/preset selection has changed
+        if clip_l != preset_prompt or t5xxl != preset_prompt:
+            need_update = True
+            ui_update["clip_prompt"] = preset_prompt
+            ui_update["t5xxl_prompt"] = preset_prompt
+        
+        # Tokenize and encode using either the preset prompt or user-edited prompt
         tokens = clip.tokenize(clip_l)
         tokens["t5xxl"] = clip.tokenize(t5xxl)["t5xxl"]
         
-        # Return conditioning with guidance
-        return (clip.encode_from_tokens_scheduled(tokens, add_dict={"guidance": guidance}), )
+        # Return conditioning with the guidance value
+        conditioning = clip.encode_from_tokens_scheduled(tokens, add_dict={"guidance": guidance})
+        
+        # Pass the updated prompts to the UI if needed
+        if need_update:
+            return (conditioning, ui_update)
+        else:
+            return (conditioning, )
 
 # Include the original Flux nodes for compatibility
 class CLIPTextEncodeFlux:
@@ -153,6 +171,7 @@ class CLIPTextEncodeFlux:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "encode"
     CATEGORY = "advanced/conditioning/flux"
+    
     def encode(self, clip, clip_l, t5xxl, guidance):
         tokens = clip.tokenize(clip_l)
         tokens["t5xxl"] = clip.tokenize(t5xxl)["t5xxl"]
@@ -168,6 +187,7 @@ class FluxGuidance:
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "append"
     CATEGORY = "advanced/conditioning/flux"
+    
     def append(self, conditioning, guidance):
         c = node_helpers.conditioning_set_values(conditioning, {"guidance": guidance})
         return (c, )
@@ -182,6 +202,7 @@ class FluxDisableGuidance:
     FUNCTION = "append"
     CATEGORY = "advanced/conditioning/flux"
     DESCRIPTION = "This node completely disables the guidance embed on Flux and Flux like models"
+    
     def append(self, conditioning):
         c = node_helpers.conditioning_set_values(conditioning, {"guidance": None})
         return (c, )
